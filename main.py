@@ -7,7 +7,6 @@ from groq import Groq
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# Karakterler
 CHARACTERS = {
     "1": {
         "name": "Yardımcı",
@@ -27,19 +26,46 @@ def karakter_sec():
     print("\nHangi karakterle konuşmak istersin?")
     for key, char in CHARACTERS.items():
         print(f"{key}. {char['name']}")
-    
     secim = input("\nSeçimin (1/2/3): ").strip()
     if secim not in CHARACTERS:
-        print("Geçersiz seçim, varsayılan kullanılıyor.")
         secim = "1"
-    
     return CHARACTERS[secim]
 
-def konusmayi_kaydet(messages, karakter_adi, total_tokens):
-    # conversations klasörü yoksa oluştur
-    os.makedirs("conversations", exist_ok=True)
+def gecmis_konusmalari_listele():
+    if not os.path.exists("conversations"):
+        return []
+    dosyalar = sorted(os.listdir("conversations"), reverse=True)
+    return [d for d in dosyalar if d.endswith(".json")]
+
+def gecmis_yukle():
+    dosyalar = gecmis_konusmalari_listele()
     
-    # Dosya adı: tarih + karakter
+    if not dosyalar:
+        print("Kayıtlı konuşma bulunamadı.")
+        return None, None
+    
+    print("\nKayıtlı konuşmalar:")
+    for i, dosya in enumerate(dosyalar[:5]):  # Son 5 konuşmayı göster
+        print(f"{i+1}. {dosya}")
+    
+    secim = input("\nYüklemek istediğin konuşma numarası (yoksa Enter): ").strip()
+    
+    if not secim:
+        return None, None
+    
+    try:
+        dosya_adi = dosyalar[int(secim) - 1]
+        with open(f"conversations/{dosya_adi}", "r", encoding="utf-8") as f:
+            kayit = json.load(f)
+        print(f"\n'{kayit['karakter']}' karakteriyle önceki konuşma yüklendi.")
+        print(f"Önceki konuşmada {kayit['toplam_token']} token kullanılmıştı.\n")
+        return kayit["mesajlar"], kayit["karakter"]
+    except:
+        print("Yükleme başarısız.")
+        return None, None
+
+def konusmayi_kaydet(messages, karakter_adi, total_tokens):
+    os.makedirs("conversations", exist_ok=True)
     tarih = datetime.now().strftime("%Y%m%d_%H%M%S")
     dosya_adi = f"conversations/{tarih}_{karakter_adi}.json"
     
@@ -56,26 +82,35 @@ def konusmayi_kaydet(messages, karakter_adi, total_tokens):
     print(f"\nKonuşma kaydedildi: {dosya_adi}")
 
 def main():
-    karakter = karakter_sec()
+    print("=== LLM Sohbet Botu ===")
+    print("\n1. Yeni konuşma başlat")
+    print("2. Geçmiş konuşmaya devam et")
     
-    messages = [
-        {"role": "system", "content": karakter["prompt"]}
-    ]
+    baslangic = input("\nSeçimin (1/2): ").strip()
+    
+    if baslangic == "2":
+        messages, karakter_adi = gecmis_yukle()
+        if messages is None:
+            karakter = karakter_sec()
+            messages = [{"role": "system", "content": karakter["prompt"]}]
+            karakter_adi = karakter["name"]
+    else:
+        karakter = karakter_sec()
+        messages = [{"role": "system", "content": karakter["prompt"]}]
+        karakter_adi = karakter["name"]
     
     total_tokens = 0
-    
-    print(f"\n'{karakter['name']}' karakteriyle sohbet başladı.")
-    print("Çıkmak için 'quit' yaz.\n")
+    print(f"'{karakter_adi}' ile sohbet başladı. Çıkmak için 'quit' yaz.\n")
     
     while True:
         user_input = input("Sen: ").strip()
         
         if not user_input:
             continue
-            
+        
         if user_input.lower() == "quit":
-            konusmayi_kaydet(messages, karakter["name"], total_tokens)
-            print(f"Toplam kullanılan token: {total_tokens}")
+            konusmayi_kaydet(messages, karakter_adi, total_tokens)
+            print(f"Toplam token: {total_tokens}")
             print("Görüşürüz!")
             break
         
