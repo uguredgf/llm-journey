@@ -57,6 +57,7 @@ def main():
     print("=== RAG Sistemi ===")
     print("1. Dosya yükle")
     print("2. Soru sor")
+    print("3. Yüklü dosyaları listele")
     secim = input("Seçim: ").strip()
 
     if secim == "1":
@@ -79,6 +80,16 @@ def main():
             cevap = sor(soru, gecmis)
             gecmis.append({"role": "user", "content": soru})
             gecmis.append({"role": "assistant", "content": cevap})
+
+    elif secim == "3":
+        sonuclar = collection.get()
+        if not sonuclar["metadatas"]:
+            print("Henüz dosya yüklenmedi.")
+        else:
+            dosyalar = set(m["kaynak"] for m in sonuclar["metadatas"] if m)
+            print(f"\nYüklü dosyalar ({len(dosyalar)} adet):")
+            for d in dosyalar:
+                print(f"  - {d}")
 
 if __name__ == "__main__":
     main()
